@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel Intelligence</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #050505;
+            --card-bg: #111;
+            --primary: #00ff41; /* Hacker Green */
+            --danger: #ff3333; /* Alert Red */
+            --text-main: #e0e0e0;
+            --text-muted: #888;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-image: radial-gradient(circle at 50% 50%, #1a1a1a 0%, #000 100%);
+        }
+
+        .dashboard {
+            width: 100%;
+            max-width: 700px;
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 0 50px rgba(0, 255, 65, 0.05);
+            border: 1px solid #222;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header i {
+            font-size: 3rem;
+            color: var(--primary);
+            margin-bottom: 15px;
+            text-shadow: 0 0 15px var(--primary);
+        }
+
+        h1 { margin: 0; font-weight: 300; letter-spacing: 2px; text-transform: uppercase; }
+        p.subtitle { color: var(--text-muted); font-size: 0.9rem; margin-top: 5px; }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+            background: #000;
+            padding: 5px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: white;
+            padding: 15px;
+            font-size: 1rem;
+            outline: none;
+            font-family: 'Courier New', monospace;
+        }
+
+        button {
+            background: var(--primary);
+            color: black;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+
+        button:hover {
+            background: #00cc33;
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
+        }
+
+        /* Results Styling */
+        .result-card {
+            background: rgba(255, 51, 51, 0.1);
+            border-left: 4px solid var(--danger);
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        .clean-card {
+            background: rgba(0, 255, 65, 0.1);
+            border-left: 4px solid var(--primary);
+            padding: 20px;
+            text-align: center;
+            border-radius: 4px;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        .label { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1px; }
+        .data-point { font-size: 1.1rem; margin-bottom: 10px; font-family: 'Courier New', monospace; color: white;}
+        .hash { word-break: break-all; color: var(--danger); }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .loader { text-align: center; color: var(--primary); display: none; margin: 20px 0; }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <div class="header">
+            <i class="fa-solid fa-shield-halved"></i>
+            <h1>Sentinel</h1>
+            <p class="subtitle">DARK WEB INTELLIGENCE MONITOR</p>
+        </div>
+
+        <div class="search-box">
+            <input type="email" id="emailInput" placeholder="Enter target identity (e.g. mubeen@gmail.com)">
+            <button onclick="scan()">Analyze</button>
+        </div>
+
+        <div id="loader" class="loader">
+            <i class="fa-solid fa-circle-notch fa-spin"></i> SCANNING DARK WEB NODES...
+        </div>
+
+        <div id="resultArea"></div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        // 1. Deploy the Backend to Render first.
+        // 2. Copy the URL Render gives you (e.g., https://sentinel-backend.onrender.com)
+        // 3. Paste it below, keeping the "/scan" at the end.
+        
+        const API_URL = "YOUR_RENDER_URL_HERE/scan"; 
+
+        async function scan() {
+            const email = document.getElementById('emailInput').value;
+            const resultDiv = document.getElementById('resultArea');
+            const loader = document.getElementById('loader');
+            
+            if(!email) { alert("Input Required"); return; }
+
+            // Reset UI
+            resultDiv.innerHTML = "";
+            loader.style.display = "block";
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: email })
+                });
+
+                const data = await response.json();
+                
+                // Slight delay to make it look like a "deep" scan
+                setTimeout(() => {
+                    loader.style.display = "none";
+
+                    if (data.status === "LEAK_FOUND") {
+                        let html = "";
+                        data.data.forEach(leak => {
+                            html += `
+                            <div class="result-card">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <h3 style="color:var(--danger); margin:0;"><i class="fa-solid fa-triangle-exclamation"></i> COMPROMISED</h3>
+                                    <span style="background:#330000; color:#ff9999; padding:2px 8px; font-size:0.8rem; border-radius:4px;">${leak.leak_date}</span>
+                                </div>
+                                <hr style="border-color: #444; margin: 15px 0;">
+                                
+                                <div class="label">SOURCE MARKET</div>
+                                <div class="data-point">${leak.source_market}</div>
+
+                                <div class="label">LEAKED HASH</div>
+                                <div class="data-point hash">${leak.password_hash}</div>
+                            </div>`;
+                        });
+                        resultDiv.innerHTML = html;
+                    } else {
+                        resultDiv.innerHTML = `
+                        <div class="clean-card">
+                            <h3 style="color:var(--primary); margin:0;"><i class="fa-solid fa-check-circle"></i> SECURE</h3>
+                            <p style="margin-top:10px; color:#ccc;">No intelligence found on this target in monitored dumps.</p>
+                        </div>`;
+                    }
+                }, 800); // 800ms fake delay
+
+            } catch (error) {
+                console.error(error);
+                loader.style.display = "none";
+                resultDiv.innerHTML = `<p style="color:red; text-align:center;">CONNECTION ERROR: Backend unreachable or sleeping.</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
