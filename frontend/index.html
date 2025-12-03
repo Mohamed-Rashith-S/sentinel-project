@@ -35,6 +35,27 @@
             border-radius: 16px;
             box-shadow: 0 0 50px rgba(0, 255, 65, 0.05);
             border: 1px solid #222;
+            position: relative;
+        }
+
+        /* Logout Button Style */
+        .logout-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #222;
+            color: #888;
+            border: 1px solid #333;
+            padding: 5px 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: 0.3s;
+        }
+        .logout-btn:hover {
+            background: var(--danger);
+            color: white;
+            border-color: var(--danger);
         }
 
         .header {
@@ -73,7 +94,7 @@
             font-family: 'Courier New', monospace;
         }
 
-        button {
+        button.scan-btn {
             background: var(--primary);
             color: black;
             border: none;
@@ -85,7 +106,7 @@
             text-transform: uppercase;
         }
 
-        button:hover {
+        button.scan-btn:hover {
             background: #00cc33;
             box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
         }
@@ -124,6 +145,8 @@
 <body>
 
     <div class="dashboard">
+        <button onclick="logout()" class="logout-btn"><i class="fa-solid fa-power-off"></i> LOGOUT</button>
+
         <div class="header">
             <i class="fa-solid fa-shield-halved"></i>
             <h1>Sentinel</h1>
@@ -132,7 +155,7 @@
 
         <div class="search-box">
             <input type="email" id="emailInput" placeholder="Enter target identity (e.g. mubeen@gmail.com)">
-            <button onclick="scan()">Analyze</button>
+            <button class="scan-btn" onclick="scan()">Analyze</button>
         </div>
 
         <div id="loader" class="loader">
@@ -144,11 +167,21 @@
 
     <script>
         // --- CONFIGURATION ---
-        // 1. Deploy the Backend to Render first.
-        // 2. Copy the URL Render gives you (e.g., https://sentinel-backend.onrender.com)
-        // 3. Paste it below, keeping the "/scan" at the end.
+        const API_URL = "https://sentinel-project-vqu4.onrender.com"; 
+
+        // 1. SECURITY CHECK: Verify Token on Load
+        const token = localStorage.getItem('sentinel_token');
         
-        const API_URL = "https://sentinel-project-vqu4.onrender.com/scan"; 
+        // If no token exists, force them back to login page
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+
+        // Logout Function
+        function logout() {
+            localStorage.removeItem('sentinel_token');
+            window.location.href = 'login.html';
+        }
 
         async function scan() {
             const email = document.getElementById('emailInput').value;
@@ -162,15 +195,26 @@
             loader.style.display = "block";
 
             try {
-                const response = await fetch(API_URL, {
+                // 2. FETCH WITH TOKEN
+                const response = await fetch(`${API_URL}/scan`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}` // This sends the key to the backend
+                    },
                     body: JSON.stringify({ email: email })
                 });
 
+                // Handle Expired Token (401 Unauthorized)
+                if (response.status === 401) {
+                    alert("Session expired. Please login again.");
+                    logout();
+                    return;
+                }
+
                 const data = await response.json();
                 
-                // Slight delay to make it look like a "deep" scan
+                // Slight delay for effect
                 setTimeout(() => {
                     loader.style.display = "none";
 
