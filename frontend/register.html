@@ -5,14 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sentinel | Register</title>
     <style>
-        /* Same CSS as Login for consistency */
+        /* Modern Hacker Aesthetic */
         :root { --bg: #050505; --card: #111; --primary: #00ff41; --text: #e0e0e0; }
         body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .card { background: var(--card); padding: 40px; border-radius: 12px; border: 1px solid #333; width: 100%; max-width: 400px; box-shadow: 0 0 20px rgba(0, 255, 65, 0.1); text-align: center; }
         h1 { color: var(--primary); margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px; }
         input { width: 100%; padding: 12px; margin: 10px 0; background: #000; border: 1px solid #333; color: white; border-radius: 5px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background: var(--primary); color: black; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-top: 10px; border-radius: 5px; }
-        button:hover { background: #00cc33; }
+        button { width: 100%; padding: 12px; background: var(--primary); color: black; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-top: 10px; border-radius: 5px; transition: 0.3s; }
+        button:hover { background: #00cc33; box-shadow: 0 0 15px rgba(0, 255, 65, 0.4); }
+        button:disabled { background: #333; color: #666; cursor: not-allowed; }
         a { color: #888; font-size: 0.9rem; text-decoration: none; display: block; margin-top: 15px; }
         a:hover { color: var(--primary); }
     </style>
@@ -20,38 +21,60 @@
 <body>
     <div class="card">
         <h1>New Operator</h1>
-        <input type="email" id="email" placeholder="EMAIL ADDRESS">
-        <input type="password" id="password" placeholder="CREATE PASSWORD">
-        <button onclick="register()">Initialize Account</button>
-        <p id="msg" style="color:red; font-size:0.9rem; margin-top:10px;"></p>
+        <input type="email" id="email" placeholder="OPERATOR EMAIL">
+        <input type="password" id="password" placeholder="CREATE ACCESS KEY">
+        <button id="regBtn" onclick="register()">Initialize Account</button>
+        <p id="msg" style="color:red; font-size:0.9rem; margin-top:10px; min-height: 1.2rem;"></p>
         <a href="login.html">Return to Login</a>
     </div>
 
     <script>
-        // REPLACE THIS WITH YOUR RENDER URL
+        // YOUR RENDER URL
         const API_URL = "https://sentinel-project-vqu4.onrender.com"; 
 
         async function register() {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const msg = document.getElementById('msg');
+            const btn = document.getElementById('regBtn');
+
+            // 1. Basic Validation
+            if (!email || !password) {
+                msg.style.color = "red";
+                msg.innerText = "Email and Password required.";
+                return;
+            }
+
+            // 2. Start Loading State
+            btn.disabled = true;
+            msg.style.color = "#00ff41";
+            msg.innerText = "Contacting Sentinel Nodes... (Waking up server)";
 
             try {
-    const res = await fetch(`https://sentinel-project-vqu4.onrender.com/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-    });
+                // 3. API Call
+                const res = await fetch(`${API_URL}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
                 const data = await res.json();
 
                 if (res.ok) {
-                    alert("Registration Successful! Please Login.");
-                    window.location.href = 'login.html';
+                    msg.innerText = "Identity Initialized! Redirecting...";
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 1500);
                 } else {
-                    msg.innerText = data.error || "Registration failed";
+                    btn.disabled = false;
+                    msg.style.color = "red";
+                    msg.innerText = data.error || "Initialization failed";
                 }
             } catch (err) {
-                msg.innerText = "Server Unreachable";
+                btn.disabled = false;
+                msg.style.color = "red";
+                msg.innerText = "Server Unreachable. Ensure backend is live.";
+                console.error("Registration Error:", err);
             }
         }
     </script>
