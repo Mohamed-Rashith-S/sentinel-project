@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_bcrypt import Bcrypt
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required
 from flask_sqlalchemy import SQLAlchemy
 import os
 import pandas as pd
@@ -10,16 +10,17 @@ app = Flask(__name__)
 CORS(app)
 
 # --- CONFIGURATION ---
-# This creates a file named 'sentinel.db' in your project folder
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sentinel.db'
+# Database file: sentinel.db (SQLite)
+basedir = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'sentinel.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config["JWT_SECRET_KEY"] = "change-this-for-production-security" 
+app.config["JWT_SECRET_KEY"] = "sentinel-intelligence-secret-2026" 
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
 
-# --- DATABASE MODELS (The "Real" Database Structure) ---
+# --- DATABASE MODELS ---
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
@@ -32,40 +33,44 @@ class LeakedCredential(db.Model):
     source_market = db.Column(db.String(100))
     leak_date = db.Column(db.String(50))
 
-# --- INITIALIZATION SCRIPT ---
-# This runs once to convert your CSV into the real database
+# --- DATABASE INITIALIZATION ---
+# This function creates the DB and imports your CSV data
 def init_db():
-    with app.app_context():
-        db.create_all()
-        # Import Leaks from CSV if the database is empty
-        if not LeakedCredential.query.first():
-            if os.path.exists("darkweb_dump.csv"):
-                df = pd.read_csv("darkweb_dump.csv")
-                for _, row in df.iterrows():
-                    leak = LeakedCredential(
-                        email=row['email'],
-                        password_hash=row['password_hash'],
-                        source_market=row['source_market'],
-                        leak_date=row['leak_date']
-                    )
-                    db.session.add(leak)
-                db.session.commit()
-                print("Successfully migrated CSV to SQL Database.")
+    db.create_all()
+    # Only import if the LeakedCredential table is empty
+    if not LeakedCredential.query.first():
+        csv_path = os.path.join(basedir, "darkweb_dump.csv")
+        if os.path.exists(csv_path):
+            df = pd.read_csv(csv_path)
+            for _, row in df.iterrows():
+                leak = LeakedCredential(
+                    email=str(row['email']).lower(),
+                    password_hash=row['password_hash'],
+                    source_market=row['source_market'],
+                    leak_date=row['leak_date']
+                )
+                db.session.add(leak)
+            db.session.commit()
+            print("Successfully migrated darkweb_dump.csv to SQL Database.")
+
+# CRITICAL: This runs the initialization as soon as Gunicorn/Render starts the app
+with app.app_context():
+    init_db()
+
+# --- ROUTES ---
 
 @app.route('/')
 def home():
     return jsonify({"status": "Sentinel Engine Online", "database": "SQLite Connected"})
 
-# --- AUTH ROUTES ---
-
 @app.route('/register', methods=['POST'])
 def register():
     data = request.json
-    email = data.get('email')
+    email = data.get('email', '').lower()
     password = data.get('password')
 
     if User.query.filter_by(email=email).first():
-        return jsonify({"error": "Identity already exists in system"}), 400
+        return jsonify({"error": "Operator identity already exists"}), 400
 
     hashed_pw = bcrypt.generate_password_hash(password).decode('utf-8')
     new_user = User(email=email, password_hash=hashed_pw)
@@ -77,7 +82,7 @@ def register():
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
-    user = User.query.filter_by(email=data.get('email')).first()
+    user = User.query.filter_by(email=data.get('email', '').lower()).first()
     
     if user and bcrypt.check_password_hash(user.password_hash, data.get('password')):
         access_token = create_access_token(identity=user.email)
@@ -85,31 +90,19 @@ def login():
     
     return jsonify({"error": "Invalid Access Credentials"}), 401
 
-# --- SCAN ROUTE ---
-
 @app.route('/scan', methods=['POST'])
 @jwt_required()
 def scan_email():
-    email_to_check = request.json.get('email').lower()
-    
-    # Query the SQL database instead of reading a CSV file every time
+    email_to_check = request.json.get('email', '').lower()
     results = LeakedCredential.query.filter_by(email=email_to_check).all()
     
     if results:
-        # Format results for the frontend
-        leaks = []
-        for r in results:
-            leaks.append({
-                "email": r.email,
-                "password_hash": r.password_hash,
-                "source_market": r.source_market,
-                "leak_date": r.leak_date
-            })
+        leaks = [{"email": r.email, "password_hash": r.password_hash, 
+                  "source_market": r.source_market, "leak_date": r.leak_date} for r in results]
         return jsonify({"status": "LEAK_FOUND", "data": leaks})
     
     return jsonify({"status": "CLEAN"})
 
 if __name__ == '__main__':
-    init_db() # Create tables and import CSV
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
